@@ -1,13 +1,18 @@
 import socket  # noqa: F401
 
+VALID_API_VERSION = [1, 2, 3, 4]
 
 ## Helper functions
 def parse_request_header_from_bytes(message: bytes):
+    api_key = message[5:6]
+    api_version = message[7:8]
     #The correlation_id is taken from bytes 8 to 12 (4 bytes)
     correlation_id = message[8:12]
 
     return {
         # Add more as we go on
+        "api_key": api_key,
+        "api_version": api_version,
         "correlation_id": correlation_id
     }
 
@@ -67,6 +72,10 @@ def main():
 
     send_to_client(client, dummy_header, 4)
     send_to_client_raw(client, request_header["correlation_id"])
+
+    if request_header["api_version"] not in VALID_API_VERSION :
+        send_to_client(client, 35, 2)
+
 
     client.close()
     server.close()
