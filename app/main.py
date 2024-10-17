@@ -85,22 +85,23 @@ def main():
 
     client, _ = server.accept()
 
-    req_message = client.recv(1024)
+    while(True):
+        req_message = client.recv(1024)
 
-    request_header = parse_request_header_from_bytes(req_message)
+        request_header = parse_request_header_from_bytes(req_message)
 
-    message = request_header["correlation_id"].rjust(4, b'\x00')
-    
-    error_code = int_to_bytes(0, 2) if bytes_to_int(request_header["api_version"]) in VALID_API_VERSION else int_to_bytes(35, 2)
-    
-    message += error_code
-    message += create_api_versions_response()
-    message += int_to_bytes(0, 6) # TAG_BUFFER (2 Bytes) + throttle_time_ms (4 bytes)
+        message = request_header["correlation_id"].rjust(4, b'\x00')
+        
+        error_code = int_to_bytes(0, 2) if bytes_to_int(request_header["api_version"]) in VALID_API_VERSION else int_to_bytes(35, 2)
+        
+        message += error_code
+        message += create_api_versions_response()
+        message += int_to_bytes(0, 6) # TAG_BUFFER (2 Bytes) + throttle_time_ms (4 bytes)
 
-    size_of_message = len(message)
-    message = int_to_bytes(size_of_message, 4) + message
+        size_of_message = len(message)
+        message = int_to_bytes(size_of_message, 4) + message
 
-    send_to_client_raw(client, message)
+        send_to_client_raw(client, message)
 
     client.close()
     server.close()
