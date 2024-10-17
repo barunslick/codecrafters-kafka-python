@@ -31,6 +31,11 @@ def send_to_client(client, message, byte_size):
     """
     client.sendall(message.to_bytes(byte_size, byteorder='big', signed=True))
 
+def int_to_bytes(value, byte_size):
+    return value.to_bytes(byte_size, byteorder='big', signed=True)
+
+def bytes_to_int(value):
+    return int.from_bytes(value, 'big', signed=True)
 
 def send_to_client_raw(client, message, pad_bytes_length = 0, pad_byte = b'\x00'):
     """
@@ -60,22 +65,42 @@ def send_to_client_raw(client, message, pad_bytes_length = 0, pad_byte = b'\x00'
     client.sendall(message)
 
 
+def create_api_versions_response():
+    """
+    Create a response message for the API versions supported by the server.
+    Currently only sends for ApiKey 18
+    """
+
+    num_of_api_versions = int_to_bytes(2, 1)
+    supported_api_versions = int_to_bytes(18, 2)
+    min_supported_api_version_18 = int_to_bytes(0, 2)
+    max_supported_api_version_18 = int_to_bytes(4, 2)
+
+    return b''.join([num_of_api_versions, supported_api_versions, min_supported_api_version_18, max_supported_api_version_18])
+
+
+
 def main():
     server = socket.create_server(("localhost", 9092), reuse_port=True)
 
     client, _ = server.accept()
 
-    dummy_header = 1
-    message = client.recv(1024)
+    req_message = client.recv(1024)
 
-    request_header = parse_request_header_from_bytes(message)
+    request_header = parse_request_header_from_bytes(req_message)
 
-    send_to_client(client, dummy_header, 4)
-    send_to_client_raw(client, request_header["correlation_id"])
+    message = request_header["correlation_id"].rjust(4, b'\x00')
+    
+    error_code = int_to_bytes(0, 2) if bytes_to_int(request_header["api_version"]) in VALID_API_VERSION else int_to_bytes(35, 2)
+    
+    message += error_code
+    message += create_api_versions_response()
+    message += int_to_bytes(0, 6) # TAG_BUFFER (2 Bytes) + throttle_time_ms (4 bytes)
 
-    if request_header["api_version"] not in VALID_API_VERSION :
-        send_to_client(client, 35, 2)
+    size_of_message = len(message)
+    message = int_to_bytes(size_of_message, 4) + message
 
+    send_to_client_raw(client, message)
 
     client.close()
     server.close()
