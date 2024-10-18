@@ -1,7 +1,7 @@
 import select
 import socket  # noqa: F401
 
-import error
+from .error import KafkaErrorCode
 
 VALID_API_VERSION = [1, 2, 3, 4]
 TAG_BUFFER_1_BYTE = b'\x00'
