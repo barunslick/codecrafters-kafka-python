@@ -2,6 +2,7 @@ import select
 import socket  # noqa: F401
 
 VALID_API_VERSION = [1, 2, 3, 4]
+TAG_BUFFER_1_BYTE = b'\x00'
 
 ## Helper functions
 def parse_request_header_from_bytes(message: bytes):
@@ -72,12 +73,29 @@ def create_api_versions_response():
     Currently only sends for ApiKey 18
     """
 
-    num_of_api_versions = int_to_bytes(2, 1)
-    supported_api_versions = int_to_bytes(18, 2)
+    num_of_api_versions = int_to_bytes(3, 1) #VARINT 2 + 1
+
+
+    ## ApiVersion -> Key 18
+    supported_api_version_18 = int_to_bytes(18, 2)
     min_supported_api_version_18 = int_to_bytes(0, 2)
     max_supported_api_version_18 = int_to_bytes(4, 2)
 
-    return b''.join([num_of_api_versions, supported_api_versions, min_supported_api_version_18, max_supported_api_version_18])
+    ## DescribeTopicPartition  -> Key 75
+    supported_api_version_75 = int_to_bytes(75, 2)
+    min_supported_api_version_75 = int_to_bytes(0, 2)
+    max_supported_api_version_75 = int_to_bytes(0, 2)
+
+
+    return b''.join([num_of_api_versions, 
+                     supported_api_version_18,
+                     min_supported_api_version_18,
+                     max_supported_api_version_18,
+                     TAG_BUFFER_1_BYTE,
+                     supported_api_version_75,
+                     min_supported_api_version_75,
+                     max_supported_api_version_75,
+                     TAG_BUFFER_1_BYTE])
 
 
 
@@ -89,7 +107,6 @@ def main():
     server.setblocking(False)
 
     while(True):
-
         readable, _, _ = select.select(clients, [], [], 0.1)
 
         for s in readable:
@@ -114,7 +131,8 @@ def main():
                 
                 message += error_code
                 message += create_api_versions_response()
-                message += int_to_bytes(0, 6) # TAG_BUFFER (2 Bytes) + throttle_time_ms (4 bytes)
+                message += int_to_bytes(0, 4) # throttle_time_ms (4 bytes)
+                message += TAG_BUFFER_1_BYTE
 
                 size_of_message = len(message)
                 message = int_to_bytes(size_of_message, 4) + message
